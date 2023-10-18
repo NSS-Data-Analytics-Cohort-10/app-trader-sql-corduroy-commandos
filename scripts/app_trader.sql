@@ -9,8 +9,8 @@
 		-- - An app that is on both app stores will make $10,000 per month. 
 	-- c. App Trader will spend an average of $1000 per month to market an app regardless of the price of the app. If App Trader owns rights to the app in both stores, 		it can market the app for both stores for a single cost of $1000 per month.
     	-- - An app that costs $200,000 and an app that costs $1.00 will both cost $1000 a month for marketing, regardless of the number of stores it is in.
-	-- d. For every half point that an app gains in rating, its projected lifespan increases by one year. In other words, an app with a rating of 0 can be expected to be
-		--in use for 1 year, an app with a rating of 1.0 can be expected to last 3 years, and an app with a rating of 4.0 can be expected to last 9 years.
+	-- d. For every half point that an app gains in rating, its projected lifespan increases by one year. In other words, an app with a rating of 0 can be expected to
+		-- be in use for 1 year, an app with a rating of 1.0 can be expected to last 3 years, and an app with a rating of 4.0 can be expected to last 9 years.
     	-- - App store ratings should be calculated by taking the average of the scores from both app stores and rounding to the nearest 0.5.
 	-- e. App Trader would prefer to work with apps that are available in both the App Store and the Play Store since they can market both for the same $1000 per month.
 	
@@ -19,26 +19,37 @@
 	-- b. Develop a Top 10 List of the apps that App Trader should buy.
 	-- c. Submit a report based on your findings. All analysis work must be done using PostgreSQL, however you may export query results to create charts in Excel for 			your report.
 
+CREATE TABLE all_apps
+AS
 SELECT
 	UPPER(a.name),
+	COALESCE(CAST(a.price AS money),CAST(p.price AS money)) AS app_price,
 	CASE
-		WHEN CAST(a.price AS money) = CAST(0.00 AS money) THEN CAST(0.00 as money)
-		WHEN CAST(p.price AS money) = CAST(0.00 AS money) THEN CAST(0.00 as money)
-		WHEN CAST(a.price AS money) >= CAST(p.price AS money) THEN CAST(a.price AS money)
-		WHEN CAST(p.price AS money) >= CAST(a.price AS money) THEN CAST(p.price AS money)
-	END AS app_price,
-	CASE
-		WHEN CAST(a.price AS money) = CAST(0.00 AS money) THEN CAST(5000.00 as money)
-		WHEN CAST(p.price AS money) = CAST(0.00 AS money) THEN CAST(5000.00 as money)
-		WHEN CAST(a.price AS money) >= CAST(p.price AS money) THEN CAST(a.price AS money)*10000
-		WHEN CAST(p.price AS money) >= CAST(a.price AS money) THEN CAST(p.price AS money)*10000
+		WHEN CAST(a.price AS money) >= CAST(p.price AS money) THEN CAST(a.price AS money)*20000
+		WHEN CAST(p.price AS money) >= CAST(a.price AS money) THEN CAST(p.price AS money)*20000
+		WHEN CAST(a.price AS money) IS NULL THEN CAST(10000.00 AS money)
+		WHEN CAST(p.price AS money) IS NULL THEN CAST(10000.00 AS money)
+		ELSE CAST(10000.00 AS money)
 	END AS purchase_price,
 	CASE
 		WHEN a.name IS NULL THEN CAST(5000.00 AS money)
 		WHEN p.name IS NULL THEN CAST(5000.00 AS money)
 		ELSE CAST(10000.00 AS money)
-	END AS monthly_earnings
+	END AS monthly_earnings,
+	CASE
+		WHEN
+			a.rating IS NOT NULL
+			AND p.rating IS NULL
+			THEN a.rating
+		WHEN
+			p.rating IS NOT NULL
+			AND a.rating IS NULL
+			THEN p.rating
+		ELSE ROUND((a.rating+p.rating)/2,2)
+	END AS avg_rating
 FROM app_store_apps AS a
 FULL JOIN play_store_apps AS p
-ON UPPER(TRIM(a.name)) = UPPER(TRIM(p.name))
-ORDER BY 1, 3;
+ON UPPER(TRIM(a.name)) = UPPER(TRIM(p.name));
+
+SELECT *
+FROM all_apps;
