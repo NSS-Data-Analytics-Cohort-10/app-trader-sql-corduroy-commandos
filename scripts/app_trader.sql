@@ -25,25 +25,28 @@ FROM play_store_apps
 -- calculate purchase prices for each app
 --figure out which apps are in both app stores
 
+WITH bloop AS (
 SELECT 
-    name,
-    CAST(price AS money) AS price,
-    CASE 
-        WHEN CAST(price AS money) = 0::money THEN 10000::money 
-        ELSE CAST(price AS money) * 10000 
-    END AS purchase_price
-FROM app_store_apps
-ORDER BY price DESC;
-
-SELECT 
-	name,
-	CAST(price AS money) AS price,
-	CASE 	
-		WHEN CAST(price AS money) = 0::money THEN 10000::money
-		ELSE CAST (price AS money) * 10000
+	CASE WHEN a.name = p.name THEN 'yes' ELSE 'no' END AS both_store,
+	CAST(a.price AS money) AS price_app,
+	CAST(p.price AS money) AS price_play,
+	UPPER(a.name) AS app_name,
+	UPPER(p.name) AS play_name,
+	CASE 
+	WHEN CAST(a.price AS money) > CAST(p.price AS money) THEN CAST(a.price AS money)*10000 
+	WHEN CAST(p.price AS money) < CAST (a.price AS money) THEN CAST(p.price AS money)*10000
+	WHEN CAST (p.price AS money) = CAST (a.price AS money) THEN CAST(p.price AS money)*10000
+	WHEN CAST(a.price AS money) = CAST(0 AS money) THEN CAST(10000 AS money)
 	END AS purchase_price
-FROM play_store_apps
-ORDER BY price DESC
+FROM app_store_apps AS a
+FULL JOIN play_store_apps AS p
+ON a.name = p.name
+ORDER BY both_store DESC)
+
+
+
+
+-- null val, you can replace it with a value
 
 -- b. Apps earn $5000 per month, per app store it is on, from in-app advertising and in-app purchases, regardless of the price of the app.
 
