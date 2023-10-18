@@ -20,20 +20,25 @@
 	-- c. Submit a report based on your findings. All analysis work must be done using PostgreSQL, however you may export query results to create charts in Excel for 			your report.
 
 SELECT
-	name,
+	UPPER(a.name),
 	CASE
-		WHEN CAST(a.price AS money) > CAST(p.price AS money) THEN CAST(a.price AS money)
-		WHEN CAST(a.price AS money) IS NULL THEN CAST(0.00 as money)
-		WHEN CAST(p.price AS money) IS NULL THEN CAST(0.00 as money)
-		ELSE CAST(p.price AS money)
+		WHEN CAST(a.price AS money) = CAST(0.00 AS money) THEN CAST(0.00 as money)
+		WHEN CAST(p.price AS money) = CAST(0.00 AS money) THEN CAST(0.00 as money)
+		WHEN CAST(a.price AS money) >= CAST(p.price AS money) THEN CAST(a.price AS money)
+		WHEN CAST(p.price AS money) >= CAST(a.price AS money) THEN CAST(p.price AS money)
 	END AS app_price,
 	CASE
-		WHEN CAST(a.price AS money) > CAST(p.price AS money) THEN CAST(a.price AS money)*10000
-		WHEN CAST(a.price AS money) IS NULL THEN CAST(10000.00 as money)
-		WHEN CAST(p.price AS money) IS NULL THEN CAST(10000.00 as money)
-		ELSE CAST(p.price AS money)*10000
-	END AS purchase_price
+		WHEN CAST(a.price AS money) = CAST(0.00 AS money) THEN CAST(5000.00 as money)
+		WHEN CAST(p.price AS money) = CAST(0.00 AS money) THEN CAST(5000.00 as money)
+		WHEN CAST(a.price AS money) >= CAST(p.price AS money) THEN CAST(a.price AS money)*10000
+		WHEN CAST(p.price AS money) >= CAST(a.price AS money) THEN CAST(p.price AS money)*10000
+	END AS purchase_price,
+	CASE
+		WHEN a.name IS NULL THEN CAST(5000.00 AS money)
+		WHEN p.name IS NULL THEN CAST(5000.00 AS money)
+		ELSE CAST(10000.00 AS money)
+	END AS monthly_earnings
 FROM app_store_apps AS a
 FULL JOIN play_store_apps AS p
-USING(name)
-ORDER BY app_price DESC;
+ON UPPER(TRIM(a.name)) = UPPER(TRIM(p.name))
+ORDER BY 1, 3;
