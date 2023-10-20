@@ -80,14 +80,7 @@ play_store_apps;
    FROM app_store_apps;
    
    
-    CASE
-	 
-	 WHEN CAST(a.price AS money)=CAST(0.00 AS money) THEN CAST (5000.00 as money)
-	WHEN CAST (p.price AS money)=CAST (0.00 AS money) THEN CAST (5000.00 as money)
-	WHEN CAST (a.price AS money) >=CAST (0.00 AS money) THEN CAST (5000.00 as money)
-	WHEN CAST (p.price AS money) >= CAST (0.00 AS money) THEN CAST (5000.00 as money)
-     END AS purchase_price,
-
+   
     SELECT 
 	APP_name
 	play_name
@@ -95,8 +88,11 @@ play_store_apps;
 	PLAY-price
 	
 	////////////////
+--ans	
+	SELECT
+	COALESCE(UPPER(TRIM(a.name)),UPPER(TRIM(P.name)))
+	app_name,
 	
-	SELECT UPPER(TRIM(a.name)), 
 	CASE
 		WHEN CAST(a.price AS money)=CAST(0.00 AS money) THEN CAST (0.00 as money)
 		WHEN CAST (p.price AS money)=CAST (0.00 AS money) THEN CAST (0.00 as money)
@@ -125,28 +121,26 @@ play_store_apps;
 	 FROM app_store_apps AS a
 	 FULL JOIN play_store_apps AS p
 	 USING(name)
-	 ORDER BY purchase_price DESC;
-	 
-	 
--- 	 UNION
-	 
--- 	 SELECT a.name
-	 
--- 	 CASE 
--- 	 WHEN rating =0 THEN 
-
-  SELECT MAX(content_rating)
-  FROM app_store_apps;
-	  
-	  
-	   
-	 
-	 
-	 
-
+	 INNER join 
+	  (
+      SELECT
+	       UPPER(TRIM(NAME)) app_name_avg,
+		   rating
+	  FROM
+		   app_store_apps
+	  UNION
+	  SELECT
+		  UPPER(TRIM(NAME)) APP_NAME_AVG,rating  
+	  FROM 
+		   play_store_apps
+	 )	  
+	GROUP BY	 	 
+	 APP_NAMR_AVG)S ON APP_NAME_AVG=
+	 COALESCE(UPPER(TRIM(a.name)),UPPER(TRIM(p.name)))	
+     ORDER BY purchase_price DESC;
 	
 	
-	
+	ERROR ---GROUP BY
 	
 	
    
