@@ -19,37 +19,77 @@
 	-- b. Develop a Top 10 List of the apps that App Trader should buy.
 	-- c. Submit a report based on your findings. All analysis work must be done using PostgreSQL, however you may export query results to create charts in Excel for 			your report.
 
+--CREATE TABLE all_apps
+--AS
 CREATE TABLE all_apps
-AS
-SELECT
-	UPPER(a.name),
-	COALESCE(CAST(a.price AS money),CAST(p.price AS money)) AS app_price,
-	CASE
-		WHEN CAST(a.price AS money) >= CAST(p.price AS money) THEN CAST(a.price AS money)*20000
-		WHEN CAST(p.price AS money) >= CAST(a.price AS money) THEN CAST(p.price AS money)*20000
-		WHEN CAST(a.price AS money) IS NULL THEN CAST(10000.00 AS money)
-		WHEN CAST(p.price AS money) IS NULL THEN CAST(10000.00 AS money)
-		ELSE CAST(10000.00 AS money)
-	END AS purchase_price,
-	CASE
-		WHEN a.name IS NULL THEN CAST(5000.00 AS money)
-		WHEN p.name IS NULL THEN CAST(5000.00 AS money)
-		ELSE CAST(10000.00 AS money)
-	END AS monthly_earnings,
-	CASE
-		WHEN
-			a.rating IS NOT NULL
-			AND p.rating IS NULL
-			THEN a.rating
-		WHEN
-			p.rating IS NOT NULL
-			AND a.rating IS NULL
-			THEN p.rating
-		ELSE ROUND((a.rating+p.rating)/2,2)
-	END AS avg_rating
-FROM app_store_apps AS a
-FULL JOIN play_store_apps AS p
-ON UPPER(TRIM(a.name)) = UPPER(TRIM(p.name));
+	(
+	WITH
+	app_ratings AS
+		(
+		SELECT
+			DISTINCT COALESCE(UPPER(TRIM(a.name)),UPPER(TRIM(p.name))) AS app_name,
+			a.rating AS app_store_rating,
+			p.rating AS play_store_rating
+		FROM app_store_apps AS a
+		FULL JOIN play_store_apps AS p
+			ON UPPER(TRIM(a.name)) = UPPER(TRIM(p.name))
+		),
+	app_prices AS
+		(
+		SELECT
+			DISTINCT COALESCE(UPPER(TRIM(a.name)),UPPER(TRIM(p.name))) AS app_name,
+			CASE
+			WHEN a.price IS NOT NULL AND p.price IS NOT NULL THEN 'both_stores'
+			WHEN a.price IS NOT NULL AND p.price IS NULL THEN 'app_store_only'
+			WHEN a.price IS NULL AND p.price IS NOT NULL THEN 'play_store_only'
+			ELSE 'N/A'
+			END AS availability,
+			CASE
+				WHEN a.price IS NOT NULL THEN CAST(a.price AS money)
+				ELSE CAST(0.00 AS money)
+			END AS app_store_price,
+			CASE
+				WHEN p.price IS NOT NULL THEN CAST(p.price AS money)
+				ELSE CAST(0.00 AS money)
+			END AS play_store_price
+		FROM app_store_apps AS a
+		FULL JOIN play_store_apps AS p
+			ON UPPER(TRIM(a.name)) = UPPER(TRIM(p.name))
+		)
+	SELECT
+		DISTINCT COALESCE(r.app_name,p.app_name) AS app_name,
+		p.availability,
+		CASE
+			WHEN p.availability = 'app_store_only' AND p.app_store_price = CAST(0 AS money) THEN CAST(10000	AS money)
+			WHEN p.availability = 'app_store_only' THEN p.app_store_price*10000
+			WHEN p.availability = 'play_store_only' AND p.play_store_price = CAST(0 AS money) THEN CAST(10000	AS money)
+			WHEN p.availability = 'play_store_only' THEN p.play_store_price*10000
+			WHEN p.availability = 'both_stores' AND p.app_store_price = CAST(0 AS money) AND p.play_store_price = CAST(0 AS money) THEN CAST(10000	AS money)
+			ELSE CAST(10000 AS money)
+		END AS purchase_price,
+		CASE
+			WHEN p.availability = 'app_store_only' OR p.availability = 'play_store_only' THEN CAST(5000 AS money)
+			WHEN p.availability = 'both_stores' THEN CAST(10000 AS money)
+		END AS monthly_earnings,
+		CASE
+			WHEN p.availability = 'app_store_only' AND app_store_rating IS NULL THEN 0.0
+			WHEN p.availability = 'app_store_only' THEN r.app_store_rating
+			WHEN p.availability = 'play_store_only' AND play_store_rating IS NULL THEN 0.0
+			WHEN p.availability = 'play_store_only' THEN r.play_store_rating
+			ELSE ROUND((r.app_store_rating+r.play_store_rating)/2,1)
+		END AS avg_rating,
+		CASE
+			WHEN p.availability = 'app_store_only' AND app_store_rating IS NULL OR app_store_rating = 0.0 THEN 1
+			WHEN p.availability = 'app_store_only' THEN ROUND(r.app_store_rating/0.5,0)
+			WHEN p.availability = 'play_store_only' AND play_store_rating IS NULL OR play_store_rating IS NULL THEN 1
+				WHEN p.availability = 'play_store_only' THEN ROUND(r.play_store_rating/0.5,0)
+			ELSE ROUND(ROUND((r.app_store_rating+r.play_store_rating)/2,1)/0.5,0)
+		END AS lifespan_in_yrs
+	FROM app_ratings AS r
+	FULL JOIN app_prices AS p
+		USING (app_name)
+	)
 
-SELECT *
-FROM all_apps;
+SELECT
+	app_name,
+	
