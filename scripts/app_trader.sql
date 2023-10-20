@@ -1,80 +1,97 @@
-SELECT *
-FROM app_store_apps
+WITH SUB3 AS (
 
-SELECT *
-FROM play_store_apps
+WITH SUB2 AS (
 
--- PRESENTATIONS @ NOON ON SATURDAY
-
--- OVERVIEW --
--- Your team has been hired by a new company called App Trader to help them explore and gain insights from apps that are made available through the Apple App Store and Android Play Store. App Trader is a broker that purchases the rights to apps from developers in order to market the apps and offer in-app purchase.
-
--- PERSONAL NOTES -- 
-
--- Top 10 (six with the highest revenue the rest tie) apps that are going to give the company the most revenue
--- Stick to assumptions 
--- Create query that will give app trader the most profitable apps 
--- Up to you to decide to get the answer 
--- Buisness proposal 
-
--- 2. Assumptions
--- Based on research completed prior to launching App Trader as a company, you can assume the following:
-
--- a. App Trader will purchase apps for 10,000 times the price of the app. For apps that are priced from free up to $1.00, the purchase price is $10,000.For example, an app that costs $2.00 will be purchased for $20,000. The cost of an app is not affected by how many app stores it is on. A $1.00 app on the Apple app store will cost the same as a $1.00 app on both stores.
--- If an app is on both stores, it's purchase price will be calculated based off of the highest app price between the two stores. Notes: 10,000 X price of app
--- calculate purchase prices for each app
---figure out which apps are in both app stores
-
-WITH bloop AS (
+WITH SUB AS (
 SELECT 
-	CASE WHEN a.name = p.name THEN 'yes' ELSE 'no' END AS both_store,
-	CAST(a.price AS money) AS price_app,
-	CAST(p.price AS money) AS price_play,
-	UPPER(a.name) AS app_name,
-	UPPER(p.name) AS play_name,
+	
+	DISTINCT UPPER(CASE 
+		WHEN UPPER(A.NAME) IS NULL THEN UPPER(P.NAME)
+		WHEN UPPER(P.NAME) IS NULL THEN UPPER(A.NAME)
+		WHEN UPPER(A.NAME) = UPPER(P.NAME) THEN UPPER(A.NAME)
+		WHEN UPPER(P.NAME) = UPPER(A.NAME) THEN UPPER(P.NAME)
+		END) 
+			AS ALL_APPS,
+	
 	CASE 
-	WHEN CAST(a.price AS money) > CAST(p.price AS money) THEN CAST(a.price AS money)*10000 
-	WHEN CAST(p.price AS money) < CAST (a.price AS money) THEN CAST(p.price AS money)*10000
-	WHEN CAST (p.price AS money) = CAST (a.price AS money) THEN CAST(p.price AS money)*10000
-	WHEN CAST(a.price AS money) = CAST(0 AS money) THEN CAST(10000 AS money)
-	END AS purchase_price
-FROM app_store_apps AS a
-FULL JOIN play_store_apps AS p
-ON a.name = p.name
-ORDER BY both_store DESC)
+		WHEN UPPER(A.NAME) = UPPER(P.NAME) THEN 'BOTH_STORES'
+		WHEN UPPER(A.NAME) IS NULL THEN 'PLAY_STORE'
+		WHEN UPPER(P.NAME) IS NULL THEN 'APP_STORE'
+		ELSE 'XYZZZZZ'
+		END 
+			AS LOCATION,
+	
+	CAST(A.PRICE AS MONEY) AS PRICE_A,
+	CAST(P.PRICE AS MONEY) AS PRICE_P,
+	
+	CAST(A.RATING AS NUMERIC(2, 1)) AS A_RATING,
+	CAST(P.RATING AS NUMERIC(2, 1)) AS P_RATING
+	
+FROM 
+	APP_STORE_APPS AS A
+FULL JOIN 
+	PLAY_STORE_APPS AS P
+ON UPPER(P.NAME) = UPPER(A.NAME)
+ORDER BY LOCATION DESC
+	)--END SUB
 
+SELECT
+	ALL_APPS, LOCATION,
+	CASE
+		WHEN PRICE_A IS NULL THEN PRICE_P
+		WHEN PRICE_P IS NULL THEN PRICE_A
+		WHEN PRICE_A > PRICE_P THEN PRICE_A
+		WHEN PRICE_A < PRICE_P THEN PRICE_P
+		WHEN PRICE_A = PRICE_P THEN PRICE_A
+		ELSE '99999999' 
+		END
+			AS PRICE_COMBINED,
+	A_RATING, P_RATING,
+	CASE
+		WHEN A_RATING IS NULL THEN P_RATING
+		WHEN P_RATING IS NULL THEN A_RATING
+		WHEN P_RATING = A_RATING THEN P_RATING
+		WHEN A_RATING > P_RATING THEN ROUND((A_RATING + P_RATING) / 2.0 * 2) / 2.0
+		WHEN A_RATING < P_RATING THEN ROUND((A_RATING + P_RATING) / 2.0 * 2) / 2.0
+		END
+			AS RATING_COMBINED--REGULAR RATINGS
+	
+FROM 
+	SUB
+ORDER BY PRICE_COMBINED DESC
+)
 
-
-
--- null val, you can replace it with a value
-
--- b. Apps earn $5000 per month, per app store it is on, from in-app advertising and in-app purchases, regardless of the price of the app.
-
--- An app that costs $200,000 will make the same per month as an app that costs $1.00.
-
--- An app that is on both app stores will make $10,000 per month.
--- PERSONAL NOTES
---calculate montly revenue per app 
-
--- c. App Trader will spend an average of $1000 per month to market an app regardless of the price of the app. If App Trader owns rights to the app in both stores, it can market the app for both stores for a single cost of $1000 per month.
--- An app that costs $200,000 and an app that costs $1.00 will both cost $1000 a month for marketing, regardless of the number of stores it is in.
--- PERSONAL NOTES
-
--- CALCULATE MARKETING COST? 
-
--- d. For every half point that an app gains in rating, its projected lifespan increases by one year. In other words, an app with a rating of 0 can be expected to be in use for 1 year, an app with a rating of 1.0 can be expected to last 3 years, and an app with a rating of 4.0 can be expected to last 9 years.
--- App store ratings should be calculated by taking the average of the scores from both app stores and rounding to the nearest 0.5.
-
---CALCULATE RATING LIFESPAN
-
-
--- e. App Trader would prefer to work with apps that are available in both the App Store and the Play Store since they can market both for the same $1000 per month.
-
--- IDENTIFY APPS THAT ARE IN BOTH STORES
-
--- 3. Deliverables
--- a. Develop some general recommendations as to the price range, genre, content rating, or anything else for apps that the company should target.
-
--- b. Develop a Top 10 List of the apps that App Trader should buy.
-
--- c. Submit a report based on your findings. All analysis work must be done using PostgreSQL, however you may export query results to create charts in Excel for your report.
+SELECT
+	ALL_APPS, /*PRICE_COMBINED, LOCATION, RATING_COMBINED, */
+	
+	CASE 
+    	WHEN LOCATION = 'BOTH' THEN (PRICE_COMBINED::numeric * 10000)::money
+    	ELSE (PRICE_COMBINED::numeric * 10000)::money
+		END 
+			AS PURCHASE_PRICE,
+			
+	CAST(1000 AS MONEY) AS MARKETING_SPEND,
+	
+	CASE
+		WHEN LOCATION = 'BOTH' THEN CAST(10000 AS MONEY)
+		ELSE CAST(5000 AS MONEY)
+		END	
+			AS MONTHLY_EARNINGS,
+			
+	(RATING_COMBINED * 2) + 1 
+			AS PROJECTED_LIFESPAN
+	
+FROM
+	SUB2
+	)
+	
+SELECT
+	
+	ALL_APPS, PURCHASE_PRICE, MARKETING_SPEND, MONTHLY_EARNINGS, PROJECTED_LIFESPAN,
+	
+	((MONTHLY_EARNINGS - MARKETING_SPEND) * PROJECTED_LIFESPAN) - PURCHASE_PRICE 
+		AS NET_PROFIT
+	
+FROM 
+	SUB3
+ORDER BY NET_PROFIT DESC
