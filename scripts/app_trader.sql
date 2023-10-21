@@ -93,43 +93,50 @@
 --ans	
 	WITH both_apps AS (
 		SELECT
-			DISTINCT UPPER(TRIM(a.name)) as aname,
-			UPPER(TRIM(P.name)) as pname,
+			DISTINCT COALESCE(UPPER(TRIM(a.name))) as aname,
+			COALESCE(UPPER(TRIM(P.name))) as pname,
 			a.primary_genre AS a_genre,
 			p.genres AS p_genre,
 			a.price AS apple_price,
 			CAST(REGEXP_REPLACE(p.price, '[^0-9.]', '', 'g') AS NUMERIC) AS android_price,
 			a.rating AS apple_rating,
 			p.rating AS android_rating,
-			a.review_count as apple_review_count
--- 			p.review_count as play_review_count
-	--		(CAST(REGEXP_REPLACE(a.review_count, '[^0-9.]', '', 'g'),'0') AS NUMERIC) AS apple_review_count
+			a.review_count as apple_review_count,
+			p.review_count as play_review_count
+			--(CAST(REGEXP_REPLACE(a.review_count, '[^0-9.]', '', 'g'),'0') AS NUMERIC) AS apple_review_count
 		FROM app_store_apps AS a
 		INNER JOIN
 			play_store_apps p 
 		USING(name)
 	),
-	normalized_apps AS (
+	sub_apps1 AS (
 		SELECT
 			*,
 			GREATEST(apple_price, COALESCE(android_price, 0)) AS max_price,
 			(apple_rating + COALESCE(android_rating, 0)) / 2 AS avg_rating
 		FROM both_apps
 	),
-	lifespan AS (
+	sub_apps2 AS (
 		SELECT
 			*,
-			ROUND(COALESCE((2 * avg_rating) / 2 * 2 + 1)) AS projected_lifespan_years
-		FROM normalized_apps
+			ROUND(COALESCE((2 * avg_rating) / 2 * 2 + 1)) AS projected_lifespan_years,
+			CASE 
+				 WHEN apple_price IS NULL THEN 5000
+				 WHEN android_price  IS NULL THEN 5000
+				 ELSE 10000
+			END AS monthly_earnings
+		FROM sub_apps1
 	),
-	revenues AS (
+	sub_apps3 AS (
 		SELECT
 			aname,
 			pname,
 			a_genre,
 			p_genre,
 			apple_review_count,
+			play_review_count,
 			projected_lifespan_years,
+			monthly_earnings,
 			CASE
 				WHEN CAST(apple_price AS money)=CAST(0.00 AS money) THEN CAST (0.00 as money)
 				WHEN CAST (android_price AS money)=CAST (0.00 AS money) THEN CAST (0.00 as money)
@@ -142,15 +149,10 @@
 				WHEN CAST (apple_price AS money) >=CAST (0.00 AS money) THEN apple_price*10000
 				WHEN CAST (android_price AS money) >= CAST (0.00 AS money) THEN android_price*10000
 			 END AS purchase_price,
-			CASE 
-				 WHEN apple_price IS NULL THEN CAST(5000.00 AS money)
-				 WHEN android_price  IS NULL THEN CAST(5000.00 as money)
-				 ELSE CAST(10000.00 AS money)
-			END AS monthly_earnings,
 			ROUND(COALESCE((apple_rating+android_rating)/2,1)) AS average_rating,
 		 	ROUND(COALESCE((apple_rating+android_rating)/2,1)*2-1) AS half_points,
-			ROUND((projected_lifespan_years * 12 * 5000 - (projected_lifespan_years * 12 * 1000)) / 10) * 10 AS total_revenue
-		FROM lifespan
+			ROUND(COALESCE(projected_lifespan_years * 12 * monthly_earnings)) AS total_revenue
+		FROM sub_apps2
 	)
 	SELECT  DISTINCT COALESCE(aname, pname) app_name,
 		CAST(purchase_price as money),
@@ -162,10 +164,12 @@
 		average_rating,
 		half_points,
 		CAST(ROUND((total_revenue - purchase_price) / 10) * 10 AS money) AS net_profit,
-		projected_lifespan_years
-	FROM revenues rev
+		projected_lifespan_years,
+		apple_review_count
+		play_review_count
+	FROM sub_apps3
 	order by net_profit DESC
-	LIMIT 10;
+ 	LIMIT 10;
 	
 	
 -- 	//////////
