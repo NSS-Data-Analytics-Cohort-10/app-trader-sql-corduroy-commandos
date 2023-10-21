@@ -54,7 +54,7 @@ CREATE TABLE all_apps AS
 			WHEN p.availability = 'play_store_only' AND p.play_store_price = CAST(0 AS money) THEN CAST(10000 AS money)
 			WHEN p.availability = 'play_store_only' THEN p.play_store_price*10000
 			WHEN p.availability = 'both_stores' AND p.app_store_price = CAST(0 AS money) AND p.play_store_price = CAST(0 AS money) THEN CAST(10000 AS money)
-			ELSE CAST(10000 AS money)
+			ELSE GREATEST(p.app_store_price, p.play_store_price)*10000
 		END AS purchase_price,
 -- NOTE: earnings are $5,000 per store, or $10,000 if an app is in both stores
 		CASE
@@ -73,10 +73,10 @@ CREATE TABLE all_apps AS
 --	null or 0 ratings assumed to have a 1 year lifespan
 		CASE
 			WHEN p.availability = 'app_store_only' AND app_store_rating IS NULL OR app_store_rating = 0.0 THEN 1
-			WHEN p.availability = 'app_store_only' THEN ROUND(r.app_store_rating/0.5,0)
+			WHEN p.availability = 'app_store_only' THEN ROUND(r.app_store_rating/0.5+1,0)
 			WHEN p.availability = 'play_store_only' AND play_store_rating IS NULL OR play_store_rating IS NULL THEN 1
-				WHEN p.availability = 'play_store_only' THEN ROUND(r.play_store_rating/0.5,0)
-			ELSE ROUND(ROUND((r.app_store_rating+r.play_store_rating)/2,1)/0.5,0)
+				WHEN p.availability = 'play_store_only' THEN ROUND(r.play_store_rating/0.5+1,0)
+			ELSE ROUND(ROUND((r.app_store_rating+r.play_store_rating)/2,1)/0.5+1,0)
 		END AS lifespan_in_yrs
 	FROM app_ratings AS r
 	FULL JOIN app_prices AS p
@@ -100,6 +100,9 @@ finances AS
 SELECT
 	DISTINCT a.app_name,
 	a.availability,
+	a.lifespan_in_yrs,
+	a.avg_rating,
+	a.purchase_price,
 	f.total_cost,
 	f.lifetime_earnings,
 	(f.lifetime_earnings-f.total_cost) AS profits,
@@ -131,6 +134,8 @@ CREATE TABLE top_10_overall AS
 	SELECT
 		DISTINCT a.app_name,
 		a.availability,
+		a.lifespan_in_yrs,
+		a.avg_rating,
 		f.total_cost,
 		f.lifetime_earnings,
 		(f.lifetime_earnings-f.total_cost) AS profits,
