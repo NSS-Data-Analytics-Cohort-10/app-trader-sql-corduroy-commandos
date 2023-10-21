@@ -1,5 +1,4 @@
 -- Based on research completed prior to launching App Trader as a company, you can assume the following:
-
 WITH X AS (
 
 SELECT 
@@ -12,7 +11,8 @@ SELECT
 	O.TOTAL_PROFIT,
 	O.APP_NAME,
     RANK () OVER (ORDER BY O.TOTAL_PROFIT DESC,O.APP_NAME) RANK_APP,
-	M.GENRE
+	M.GENRE,
+	COALESCE(H.AVG_INSTALL_COUNT,0) AVG_INSTALL_COUNT
 	FROM (
 SELECT 
 	W.AVG_RATING,
@@ -143,13 +143,23 @@ INNER JOIN
 	UPPER(PRIMARY_GENRE)  GENRE
 FROM
 	APP_STORE_APPS) M ON O.APP_NAME = M.GENRE_APP_NAME
+LEFT OUTER JOIN 
+(SELECT 
+	UPPER(TRIM(NAME)) INSTALL_APP_NAME,
+   ROUND(AVG(COALESCE(CAST(regexp_replace(INSTALL_COUNT, '[^0-9]+', '', 'g') AS NUMERIC),0))) AVG_INSTALL_COUNT 
+FROM 
+ PLAY_STORE_APPS
+ GROUP BY UPPER(TRIM(NAME))) H ON O.APP_NAME = H.INSTALL_APP_NAME
 WHERE 
 --COUNT_APP >= 1 AND COUNT_PLAY >= 1 
 	--AND
 RANKING = 1 ORDER BY RANK_APP)
 
-SELECT * FROM X WHERE RANK_APP <= 15
-
+SELECT * FROM X WHERE RANK_APP <=10
+/*
+SELECT * FROM APP_STORE_APPS LIMIT (10);
+SELECT * FROM PLAY_STORE_APPS LIMIT (10);
+*/
 
 -- a. App Trader will purchase apps for 10,000 times the price of the app. For apps that are priced from free up to $1.00, the purchase price is $10,000.
     
